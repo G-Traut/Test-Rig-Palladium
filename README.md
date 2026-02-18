@@ -161,8 +161,10 @@ GPIO_InitStruct.Pin = STLK_RX_Pin|STLK_TX_Pin;
 GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
 GPIO_InitStruct.Alternate = GPIO_AF7_USART3;
 HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
-Action: I mapped pins PD8 (TX) and PD9 (RX) to Alternate Function 7 (AF7). These pins are physically routed to the onboard ST-Link debugger, establishing the Virtual COM Port connection to the computer.
+
 </pre>
+Action: I mapped pins PD8 (TX) and PD9 (RX) to Alternate Function 7 (AF7). These pins are physically routed to the onboard ST-Link debugger, establishing the Virtual COM Port connection to the computer.
+
 ### 5. Resource De-allocation (MspDeInit functions)
 
 I implemented the de-initialization functions to ensure proper power management and pin state reset.
