@@ -124,6 +124,15 @@ Technical Logic: I enabled the clock for the Power Interface (PWR) and the Syste
 
 When the system triggers HAL_SPI_Init, I execute the following sequence to establish the physical link to the MAX31855 sensor.
 
+<pre>
+
+C
+void HAL_MspInit(void)
+{
+  __HAL_RCC_PWR_CLK_ENABLE();
+}
+</pre>
+
 C
 void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi) {
   if(hspi->Instance == SPI1) {
