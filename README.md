@@ -34,9 +34,7 @@ To ensure reliable data transmission with long jumper wires, the SPI is configur
 
 - Data Frame: 32-bit (read as 4 consecutive 8-bit bytes).
 
-- NSS Mode: Disabled (Chip Select is handled manually via GPIO for better timing control).
-
-# Code 
+- NSS Mode: Disabled (Chip Select is handled manually via GPIO for better timing control). 
 
 ## 1. Requirements
 
@@ -61,20 +59,17 @@ Byte 2 & 3: Internal cold-junction temperature and specific fault codes (Short t
 
 ## 4. After completion of debugging (currently the only output generated is RAW: 00 00 00 00 or RAW: FF FF FF FF
 
-# Detailed Explanation of hte code main.c
+# Detailed Explanation of the code main.c
 
 ### main(void)
 
-This is the entry point of your program. It follows a specific sequence:
+This is the entry point of the program. It follows a specific sequence:
 
 Initialization: It calls HAL_Init() to reset peripherals and SystemClock_Config() to set the CPU speed. It then initializes the GPIO, SPI, and UART peripherals.
 
-The Infinite Loop (while(1)): This is where the "work" happens. It manually pulls the Chip Select (CS) pin low to talk to the sensor, receives 4 bytes of data via SPI, pulls CS high again, and sends that raw data to your computer via UART for debugging.
+The Infinite Loop (while(1)): It manually pulls the Chip Select (CS) pin low to talk to the sensor, receives 4 bytes of data via SPI, pulls CS high again, and sends that raw data to the computer via UART for debugging.
 
 ### SystemClock_Config(void)
-
-This function is the "heartbeat" of the STM32.
-
 In the code, it uses the High-Speed External (HSE) clock from the ST-Link bypass to run the system at a high frequency.
 
 ### Error_Handler(void)
@@ -109,5 +104,72 @@ I receive 4 bytes and take those four 8-bit pieces and put them together into on
 I check for errors: I look at Bit 16. If the sensor tells me there's a "Fault," I stop immediately and return a specific error value (−1000.0).
 
 I shift and scale: I isolate the bits that represent the temperature (31 to 18). If the temperature is negative, I handle the math (sign extension) to make sure it's correct. Finally, I multiply by 0.25 because each "step" in the sensor's data represents a quarter of a degree Celsius.
+
+# Detailed Explanation of the setup stm32f7xx_hal_msp.c
+Here is the breakdown of the MSP (MCU Support Package) file. If the main.c is the "brain" that makes decisions, this file is the "nervous system"—it connects the internal logic to the physical pins and power lines.
+
+### 1. Global System Foundation (HAL_MspInit)
+
+In the global initialization phase, I prepared the core power architecture of the microcontroller.
+
+C
+void HAL_MspInit(void) {
+  __HAL_RCC_PWR_CLK_ENABLE();
+  __HAL_RCC_SYSCFG_CLK_ENABLE();
+}
+
+Technical Logic: I enabled the clock for the Power Interface (PWR) and the System Configuration (SYSCFG). This action ensures the internal voltage regulators and the peripheral routing matrix are energized before any specific communication protocols are initialized.
+
+### 2. SPI Physical Interface Configuration (HAL_SPI_MspInit)
+
+When the system triggers HAL_SPI_Init, I execute the following sequence to establish the physical link to the MAX31855 sensor.
+
+C
+void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi) {
+  if(hspi->Instance == SPI1) {
+    __HAL_RCC_SPI1_CLK_ENABLE();
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    
+Action: I enabled the high-speed clock for the SPI1 peripheral and GPIO Port A. Because STM32 peripherals are clock-gated for power efficiency, I must provide this clock signal before the peripheral registers can be accessed.
+
+C
+    GPIO_InitStruct.Pin = GPIO_PIN_5 | GPIO_PIN_6 | GPIO_PIN_7;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Alternate = GPIO_AF5_SPI1; 
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  }
+}
+Action: I performed Pin Multiplexing by assigning pins PA5 (SCK), PA6 (MISO), and PA7 (MOSI) to Alternate Function 5 (AF5). This reconfigures the silicon's internal routing, disconnecting the pins from the standard GPIO registers and hard-wiring them directly to the SPI1 hardware engine. I set the speed to VERY_HIGH to maintain signal integrity for the digital clock transitions.
+
+### 3. Telemetry Link Setup (HAL_UART_MspInit)
+
+To facilitate data transmission to the host PC, I configured the low-level resources for USART3.
+
+C
+PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_USART3;
+PeriphClkInitStruct.Usart3ClockSelection = RCC_USART3CLKSOURCE_PCLK1;
+HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct);
+__HAL_RCC_USART3_CLK_ENABLE();
+Action: I synchronized the peripheral timing by selecting PCLK1 as the clock source for the UART baud rate generator. I then enabled the clock for the USART3 module.
+
+C
+GPIO_InitStruct.Pin = STLK_RX_Pin|STLK_TX_Pin;
+GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+GPIO_InitStruct.Alternate = GPIO_AF7_USART3;
+HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+Action: I mapped pins PD8 (TX) and PD9 (RX) to Alternate Function 7 (AF7). These pins are physically routed to the onboard ST-Link debugger, establishing the Virtual COM Port connection to the computer.
+
+### 5. Resource De-allocation (MspDeInit functions)
+
+I implemented the de-initialization functions to ensure proper power management and pin state reset.
+
+C
+void HAL_SPI_MspDeInit(SPI_HandleTypeDef* hspi) {
+  __HAL_RCC_SPI1_CLK_DISABLE();
+  HAL_GPIO_DeInit(GPIOD, GPIO_PIN_7); // Resetting used pins
+}
+Action: I disabled the peripheral clocks and utilized HAL_GPIO_DeInit to return the pins to their default high-impedance state. This prevents leakage current and ensures that no parasitic power is drawn when the SPI or UART modules are not in active use.
+
+
 
 
