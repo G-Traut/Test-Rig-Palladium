@@ -125,22 +125,14 @@ Technical Logic: I enabled the clock for the Power Interface (PWR) and the Syste
 When the system triggers HAL_SPI_Init, I execute the following sequence to establish the physical link to the MAX31855 sensor.
 
 <pre>
-
-C
-void HAL_MspInit(void)
-{
-  __HAL_RCC_PWR_CLK_ENABLE();
-}
-</pre>
-
 C
 void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi) {
   if(hspi->Instance == SPI1) {
     __HAL_RCC_SPI1_CLK_ENABLE();
     __HAL_RCC_GPIOA_CLK_ENABLE();
-    
+ </pre>   
 Action: I enabled the high-speed clock for the SPI1 peripheral and GPIO Port A. Because STM32 peripherals are clock-gated for power efficiency, I must provide this clock signal before the peripheral registers can be accessed.
-
+<pre>
 C
     GPIO_InitStruct.Pin = GPIO_PIN_5 | GPIO_PIN_6 | GPIO_PIN_7;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
@@ -148,35 +140,40 @@ C
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
   }
 }
+</pre>
 Action: I performed Pin Multiplexing by assigning pins PA5 (SCK), PA6 (MISO), and PA7 (MOSI) to Alternate Function 5 (AF5). This reconfigures the silicon's internal routing, disconnecting the pins from the standard GPIO registers and hard-wiring them directly to the SPI1 hardware engine. I set the speed to VERY_HIGH to maintain signal integrity for the digital clock transitions.
 
 ### 3. Telemetry Link Setup (HAL_UART_MspInit)
 
 To facilitate data transmission to the host PC, I configured the low-level resources for USART3.
-
+<pre>
 C
 PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_USART3;
 PeriphClkInitStruct.Usart3ClockSelection = RCC_USART3CLKSOURCE_PCLK1;
 HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct);
 __HAL_RCC_USART3_CLK_ENABLE();
-Action: I synchronized the peripheral timing by selecting PCLK1 as the clock source for the UART baud rate generator. I then enabled the clock for the USART3 module.
 
+</pre>
+Action: I synchronized the peripheral timing by selecting PCLK1 as the clock source for the UART baud rate generator. I then enabled the clock for the USART3 module.
+<pre>
 C
 GPIO_InitStruct.Pin = STLK_RX_Pin|STLK_TX_Pin;
 GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
 GPIO_InitStruct.Alternate = GPIO_AF7_USART3;
 HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 Action: I mapped pins PD8 (TX) and PD9 (RX) to Alternate Function 7 (AF7). These pins are physically routed to the onboard ST-Link debugger, establishing the Virtual COM Port connection to the computer.
-
+</pre>
 ### 5. Resource De-allocation (MspDeInit functions)
 
 I implemented the de-initialization functions to ensure proper power management and pin state reset.
-
+<pre>
 C
 void HAL_SPI_MspDeInit(SPI_HandleTypeDef* hspi) {
   __HAL_RCC_SPI1_CLK_DISABLE();
   HAL_GPIO_DeInit(GPIOD, GPIO_PIN_7); // Resetting used pins
 }
+
+</pre>
 Action: I disabled the peripheral clocks and utilized HAL_GPIO_DeInit to return the pins to their default high-impedance state. This prevents leakage current and ensures that no parasitic power is drawn when the SPI or UART modules are not in active use.
 
 
