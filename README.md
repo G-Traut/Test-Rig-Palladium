@@ -154,7 +154,8 @@ an individual Chip Select (CS) pin
 This allows multiple MAX31855 modules to operate on a shared SPI bus.
 
 ## Main Measurement Loop
-``` while (1)
+```
+while (1)
 {
     // Read all sensors
     MAX31855_ReadData(&htemp1);
@@ -189,7 +190,8 @@ This allows multiple MAX31855 modules to operate on a shared SPI bus.
     }
 
     HAL_Delay(1000); 
-} ```
+}
+```
 
 
  ### Description
