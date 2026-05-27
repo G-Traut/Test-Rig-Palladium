@@ -61,13 +61,133 @@ Byte 2 & 3: Internal cold-junction temperature and specific fault codes (Short t
 
 # Detailed Explanation of the code main.c
 
-### main(void)
+## Include Section ( l. 17-22)
+This section imports all required header files for the STM32 temperature measurement project.
+### main.h
+  Contains:
+
+  STM32 hardware configuration
+  GPIO definitions
+  peripheral initialization
+  project-wide declarations
+
+### max31855.h
+
+  Provides the driver functions for the MAX31855 thermocouple amplifier.
+
+  Used for:
+
+  reading thermocouple temperatures
+  SPI communication with the sensor
+  accessing sensor status and fault detection
+
+### max6675.h
+
+  Provides the driver functions for the MAX6675 thermocouple amplifier.
+
+  Used for:
+
+  SPI-based temperature acquisition
+  reading K-type thermocouple data
+  converting raw sensor values into temperatures
+
+  This allows the project to support MAX6675 sensors in addition to MAX31855 modules.
+
+## Multi-Channel MAX31855 Sensor Initialization (l.66-71)
+/* USER CODE BEGIN 0 */
+MAX31855_Handle htemp1; // First sensor (D10)
+MAX31855_Handle htemp2; // Second sensor (D9)
+MAX31855_Handle htemp3; // Third sensor (D11)
+MAX31855_Handle htemp4; // Fourth sensor (D12)
+
+Description:
+This section initializes four independent MAX31855_Handle instances for a multi-channel thermocouple measurement system.
+Each handle represents one MAX31855 thermocouple amplifier connected to the STM32 microcontroller via SPI.
+The handles store all required communication and configuration parameters for each sensor.
+
+Sensor Configuration
+Handle	Pin	Description
+htemp1	D10	Thermocouple channel 1
+htemp2	D9	Thermocouple channel 2
+htemp3	D11	Thermocouple channel 3
+htemp4	D12	Thermocouple channel 4
+
+# main(void)
 
 This is the entry point of the program. It follows a specific sequence:
 
 Initialization: It calls HAL_Init() to reset peripherals and SystemClock_Config() to set the CPU speed. It then initializes the GPIO, SPI, and UART peripherals.
 
-The Infinite Loop (while(1)): It manually pulls the Chip Select (CS) pin low to talk to the sensor, receives 4 bytes of data via SPI, pulls CS high again, and sends that raw data to the computer via UART for debugging.
+### The Infinite Loop (while(1)): It manually pulls the Chip Select (CS) pin low to talk to the sensor, receives 4 bytes of data via SPI, pulls CS high again, and sends that raw data to the computer via UART for debugging.
+```
+MAX31855 SPI Sensor Configuration
+htemp1.hspi = &hspi1;
+htemp1.cs_port = GPIOD;
+htemp1.cs_pin = GPIO_PIN_14; // D10
+
+// Configuration Sensor 2
+htemp2.hspi = &hspi1;
+htemp2.cs_port = GPIOD;
+htemp2.cs_pin = GPIO_PIN_15; // D9
+
+// Configuration Sensor 3
+htemp3.hspi = &hspi1;
+htemp3.cs_port = GPIOD;
+htemp3.cs_pin = GPIO_PIN_12; // D12
+
+// Configuration Sensor 4
+htemp4.hspi = &hspi1;
+htemp4.cs_port = GPIOD;
+htemp4.cs_pin = GPIO_PIN_11; // D11
+```
+Description
+
+This section configures four MAX31855 thermocouple sensor handles for SPI communication with the STM32 microcontroller.
+
+Each sensor uses:
+
+the same SPI peripheral (hspi1)
+an individual Chip Select (CS) pin
+
+This allows multiple MAX31855 modules to operate on a shared SPI bus.
+
+## Main Measurement Loop
+``` while (1)
+{
+    // Read all sensors
+    MAX31855_ReadData(&htemp1);
+    MAX31855_ReadData(&htemp2);
+    MAX31855_ReadData(&htemp3);
+    MAX31855_ReadData(&htemp4); 
+
+    char msg[128];
+    
+    // Simple fault detection
+    if (htemp1.fault || htemp2.fault || htemp3.fault || htemp4.fault) {
+        sprintf(msg, "Error: S1=%d, S2=%d, S3=%d, S4=%d\r\n",
+                htemp1.fault,
+                htemp2.fault,
+                htemp3.fault,
+                htemp4.fault);
+    } else {
+
+        // Individual temperature offset correction
+        float t1 = htemp1.thermocouple_temp - 1.78f;
+        float t2 = htemp2.thermocouple_temp - 1.91f;
+        float t3 = htemp3.thermocouple_temp - 1.54f;
+        float t4 = htemp4.thermocouple_temp - 1.07f;
+
+        // Format: Counter; Temp1; Temp2; Temp3; Temp4
+        int len = sprintf(msg,
+                          "%lu; %.2f; %.2f; %.2f; %.2f\r\n",
+                          log_counter++,
+                          t1, t2, t3, t4);
+
+        HAL_UART_Transmit(&huart3, (uint8_t*)msg, len, 100);
+    }
+
+    HAL_Delay(1000); 
+}```
 
 ### SystemClock_Config(void)
 In the code, it uses the High-Speed External (HSE) clock from the ST-Link bypass to run the system at a high frequency.
