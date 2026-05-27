@@ -190,7 +190,9 @@ This allows multiple MAX31855 modules to operate on a shared SPI bus.
 
     HAL_Delay(1000); 
 } ```
-### Description
+
+
+ ### Description
 
   This loop is the core of the STM32-based temperature acquisition system.
 
@@ -292,7 +294,7 @@ I set the Phase to 2-Edge because that's the specific timing the MAX31855 requir
 I use this to talk to your computer. I configure my internal UART3 hardware to 115,200 bits per second.
 
 
-# Calculation of Temperature: 
+## Calculation of Temperature: 
 
 ### MAX31855_ReadTemp()
 
@@ -320,7 +322,7 @@ Technical Logic: I enabled the clock for the Power Interface (PWR) and the Syste
 ### 2. SPI Physical Interface Configuration (HAL_SPI_MspInit)
 
 When the system triggers HAL_SPI_Init, I execute the following sequence to establish the physical link to the MAX31855 sensor.
-
+```
 <pre>
 C
 void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi) {
@@ -328,7 +330,9 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi) {
     __HAL_RCC_SPI1_CLK_ENABLE();
     __HAL_RCC_GPIOA_CLK_ENABLE();
  </pre>   
+ ```
 Action: I enabled the high-speed clock for the SPI1 peripheral and GPIO Port A. Because STM32 peripherals are clock-gated for power efficiency, I must provide this clock signal before the peripheral registers can be accessed.
+```
 <pre>
 C
     GPIO_InitStruct.Pin = GPIO_PIN_5 | GPIO_PIN_6 | GPIO_PIN_7;
@@ -338,11 +342,13 @@ C
   }
 }
 </pre>
+```
 Action: I performed Pin Multiplexing by assigning pins PA5 (SCK), PA6 (MISO), and PA7 (MOSI) to Alternate Function 5 (AF5). This reconfigures the silicon's internal routing, disconnecting the pins from the standard GPIO registers and hard-wiring them directly to the SPI1 hardware engine. I set the speed to VERY_HIGH to maintain signal integrity for the digital clock transitions.
 
 ### 3. Telemetry Link Setup (HAL_UART_MspInit)
 
 To facilitate data transmission to the host PC, I configured the low-level resources for USART3.
+```
 <pre>
 C
 PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_USART3;
@@ -351,6 +357,7 @@ HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct);
 __HAL_RCC_USART3_CLK_ENABLE();
 
 </pre>
+```
 Action: I synchronized the peripheral timing by selecting PCLK1 as the clock source for the UART baud rate generator. I then enabled the clock for the USART3 module.
 <pre>
 C
