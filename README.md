@@ -59,7 +59,7 @@ Byte 2 & 3: Internal cold-junction temperature and specific fault codes (Short t
 
 ## 4. After completion of debugging (currently the only output generated is RAW: 00 00 00 00 or RAW: FF FF FF FF
 
-# Detailed Explanation of the code main.c
+### Detailed Explanation of the code main.c
 
 ## Include Section ( l. 17-22)
 This section imports all required header files for the STM32 temperature measurement project.
@@ -94,6 +94,8 @@ This section imports all required header files for the STM32 temperature measure
   This allows the project to support MAX6675 sensors in addition to MAX31855 modules.
 
 ## Multi-Channel MAX31855 Sensor Initialization (l.66-71)
+```
+
 /* USER CODE BEGIN 0 */
 MAX31855_Handle htemp1; // First sensor (D10)
 MAX31855_Handle htemp2; // Second sensor (D9)
@@ -111,7 +113,7 @@ htemp1	D10	Thermocouple channel 1
 htemp2	D9	Thermocouple channel 2
 htemp3	D11	Thermocouple channel 3
 htemp4	D12	Thermocouple channel 4
-
+```
 # main(void)
 
 This is the entry point of the program. It follows a specific sequence:
@@ -187,7 +189,82 @@ This allows multiple MAX31855 modules to operate on a shared SPI bus.
     }
 
     HAL_Delay(1000); 
-}```
+} ```
+### Description
+
+  This loop is the core of the STM32-based temperature acquisition system.
+
+  It continuously:
+
+  -reads all thermocouple sensors
+  - checks for sensor faults
+  - applies calibration offsets
+  - formats the measurement data
+  - transmits the data via UART
+  - repeats every second
+
+### Sensor Data Acquisition
+
+  Each MAX31855 module is read sequentially using:
+
+  MAX31855_ReadData(...)
+  
+  The function retrieves:
+  
+  -thermocouple temperature
+  -internal reference temperature
+  -fault status
+  
+  for each sensor channel.
+
+### Fault Detection
+
+  The firmware performs a basic fault check:
+  
+  if (htemp1.fault || htemp2.fault || ...)
+  
+  If a fault is detected:
+  
+  an error message is generated
+  sensor fault codes are transmitted over UART
+  
+  Example:
+  
+  Error: S1=0, S2=1, S3=0, S4=0
+  
+  This helps identify disconnected or malfunctioning thermocouples.
+
+### Temperature Calibration
+
+  Each sensor uses an individual offset correction:
+  
+  float t1 = htemp1.thermocouple_temp - 1.78f;
+  
+  This compensates for:
+  
+  sensor tolerances
+  amplifier inaccuracies
+  wiring effects
+  calibration deviations
+  
+  Independent offsets improve overall measurement accuracy.
+
+### UART Data Transmission
+
+  The temperature data is formatted into a CSV-compatible string:
+  
+  Counter; Temp1; Temp2; Temp3; Temp4
+  
+  Example:
+  
+  15; 23.41; 24.10; 22.95; 23.87
+  
+  The formatted message is transmitted using:
+
+  HAL_UART_Transmit(...)
+  
+  This allows external software (e.g. Python logger scripts) to capture and store the measurements.
+
 
 ### SystemClock_Config(void)
 In the code, it uses the High-Speed External (HSE) clock from the ST-Link bypass to run the system at a high frequency.
